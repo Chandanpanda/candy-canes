@@ -1,2 +1,13 @@
-# candy-canes
-The X-th place submission in the Kaggle competition Santa-2020: The Candy Cane Contest
+# Candy Canes
+
+### About
+...
+
+### Local simulations
+...
+
+### Main components of the strategy
+...
+
+### Overview of the code
+...
