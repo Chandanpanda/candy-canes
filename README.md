@@ -8,7 +8,14 @@ The script [run.py](run.py) lets the bot play locally against other user-supplie
 ```
 pip install kaggle_environments
 ```
+
+Alternatively, install all the required packages using the following command
+```
+pip install -r requirements.txt
+```
+
 The script [load.py](load.py) produces the same graphics given an episode replay in JSON format (which could be taken from the leaderboard or produced by run.py).
+
 
 ### The strategy
 The rules of the game can be found [here](https://www.kaggle.com/c/santa-2020/overview/environment-rules). In short, there are 100 arms that, when pulled by a player, return a candy cane with an initial probability that is specific to that arm and unknown to the players. For 2000 turns, each player can select an arm to pull on, after which the player with the most candy canes wins. After each turn, each player is informed of both the result of their last pull and of the arm pulled on by the opponent (but not the result of the opponent's pull). Finally, the reward probability for each arm decays by 3% each time that arm is pulled.
