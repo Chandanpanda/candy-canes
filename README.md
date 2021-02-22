@@ -1,7 +1,7 @@
 # Candy Canes
 
 ## About
-This repository contains our submission to the competition [Santa 2020: The Candy Cane Contest](https://www.kaggle.com/c/santa-2020) hosted on [Kaggle](https://www.kaggle.com). The bot finished 14th out of X teams on he [final leaderboard](https://www.kaggle.com/c/santa-2020/leaderboard).
+This repository contains our submission to the competition [Santa 2020: The Candy Cane Contest](https://www.kaggle.com/c/santa-2020) hosted on [Kaggle](https://www.kaggle.com). The bot finished 14th out of X teams on the [final leaderboard](https://www.kaggle.com/c/santa-2020/leaderboard).
 
 ## Local simulations
 The script [run.py](run.py) lets the bot play locally against other user-supplied bots or built-in agents. It also produces some graphical representations of the resulting episode and stores a replay in JSON format. The script [load.py](load.py) produces the same graphics given an episode replay in JSON format (which could be taken from the leaderboard or produced by run.py). The required packages for these scripts can be installed with the command
