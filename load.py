@@ -23,7 +23,7 @@ def main():
     except BoxKeyError:
         agents = ["Player 0", "Player 1"]
 
-    # get the number of steps in the env
+    # get the number of steps in the episode
     steps = ep.configuration.episodeSteps
 
     # observations at each step
