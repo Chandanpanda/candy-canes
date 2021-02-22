@@ -24,7 +24,7 @@ def main():
     with open(os.path.join(os.curdir, "episode.json"), "w") as file:
         json.dump(env.toJSON(), file)
 
-    # get the number of steps in the env
+    # get the number of steps in the episode
     steps = env.configuration.episodeSteps
 
     # observations at each step

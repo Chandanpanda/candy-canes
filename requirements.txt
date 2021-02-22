@@ -2,5 +2,4 @@ kaggle_environments
 matplotlib
 numpy
 python-box
-requests
 seaborn

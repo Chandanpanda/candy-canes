@@ -3,52 +3,58 @@ import numpy as np
 # random number generator
 rng = np.random.default_rng(13)
 
-# belief distribution for the thresholds of each arm
-time_since_op_pull = np.zeros(100)
-action_counts = np.zeros((100, 2), np.int16)
+# two belief distributions for the thresholds of each arm
+# the first only incorporates decay in the threshold resulting from our
+# pulls, whereas the second incorporates decay resulting from both our pulls
+# and those of the opponent
 supports = np.tile(np.arange(101.0), (2, 100, 1))
 beliefs = np.full_like(supports, 1 / 101.0)
 
 # game history
-total_reward = 0
 my_pulls = np.array([], dtype=np.int)
 op_pulls = np.array([], dtype=np.int)
 results = np.array([], dtype=np.int)
 
 
-def get_estimates(support_type):
-    tmean = np.sum(supports[support_type] * beliefs[support_type], axis=1, keepdims=True)
-    tvar = np.sum(((supports[support_type] - tmean) ** 2) * beliefs[support_type], axis=1, keepdims=True)
-    testimates = tmean + np.sqrt(tvar)
+def get_estimates(kind):
+    # get optimistic estimates of the thresholds without any tilting
+    mean = np.sum(supports[kind] * beliefs[kind], axis=1, keepdims=True)
+    var = np.sum(((supports[kind] - mean) ** 2) * beliefs[kind], axis=1)
+    untilted_estimates = np.squeeze(mean) + np.sqrt(var)
 
+    # we "tilt" the beliefs distributions by applying some temporary
+    # bayesian updates. if the opponent pulls an arm more than twice in the
+    # last 10 turns, we update the beliefs as if all of these pulls were
+    # sucesses. however, we stop tilting the beliefs of any arms which we know
+    # have a bad untilted estimate, so we stop following the opponent if
+    # they pull bad arms
     window = 10
     hist = np.bincount(op_pulls[-window:], minlength=100).reshape(100, 1)
-    hist = np.where(hist >= 2.0, hist, 0.0)
-
-    hist[testimates <= 25] = 0
-
-    tilted = (np.ceil(supports[support_type]) ** hist) * beliefs[support_type]
+    tilt = np.where(hist >= 2, hist, 0)
+    tilt[untilted_estimates <= 25] = 0
+    tilted = (np.ceil(supports[kind]) ** tilt) * beliefs[kind]
     tilted = tilted / tilted.sum(axis=1, keepdims=True)
 
-    hist = np.bincount(op_pulls[-101:], minlength=100).reshape(100, 1)
-    hist = np.where(hist == 1, 1.0, 0.0)
-    hist[op_pulls[-1]] = 0.0
-
-    tilted = ((101.0 - np.ceil(supports[support_type])) ** hist) * tilted
+    # if the opponent has pulled an arm exactly once in the last 101 turns,
+    # we temporarily update the belief distribution for that arm as if
+    # the opponent's pull was a failure. we exclude the last arm pulled
+    # by the opponent from this rule.
+    window = 101
+    hist = np.bincount(op_pulls[-window:], minlength=100).reshape(100, 1)
+    tilt = np.where(hist == 1, 1, 0)
+    tilt[op_pulls[-1]] = 0
+    tilted = ((101.0 - np.ceil(supports[kind])) ** tilt) * tilted
     tilted = tilted / tilted.sum(axis=1, keepdims=True)
 
-    # get optimistic estimate of threshold
-    optimism = 1.0
-    mean = np.sum(supports[support_type] * tilted, axis=1, keepdims=True)
-    var = np.sum(((supports[support_type] - mean) ** 2) * tilted, axis=1, keepdims=True)
-    estimates = np.squeeze(mean + optimism * np.sqrt(var))
-
-    # return estimates
+    # return optimistic estimate of threshold given the tilted beliefs
+    mean = np.sum(supports[kind] * tilted, axis=1, keepdims=True)
+    var = np.sum(((supports[kind] - mean) ** 2) * tilted, axis=1)
+    estimates = np.squeeze(mean) + np.sqrt(var)
     return estimates
 
 
 def update(step):
-    global beliefs, supports, action_counts, time_since_op_pull
+    global beliefs, supports
     my_pull = my_pulls[-1]
     op_pull = op_pulls[-1]
     result = results[-1]
@@ -57,47 +63,43 @@ def update(step):
     likelihood = np.ceil(supports[:, my_pull])
     likelihood = (101.0 - likelihood) if result == 0 else likelihood
     beliefs[:, my_pull] = likelihood * beliefs[:, my_pull]
-    beliefs[:, my_pull] /= beliefs[:, my_pull].sum(1, keepdims=True)
+    beliefs[:, my_pull] /= beliefs[:, my_pull].sum(axis=1, keepdims=True)
 
-    # if the opponent repeats a first-time action, assume the first time is a success
-    if (action_counts[op_pull,1] == 1) and (op_pulls[-2] == op_pull):
-        likelihood = np.ceil(supports[:, op_pull]/np.array([[1], [0.97]]))
+    # if the opponent repeats a first-time action,
+    # assume the first pull was a success
+    times_pulled = np.count_nonzero(op_pulls == op_pull)
+    if (times_pulled == 2) and (op_pulls[-2] == op_pull):
+        decay = np.array([[1], [0.97]])
+        likelihood = np.ceil(supports[:, op_pull] / decay)
         beliefs[:, op_pull] = likelihood * beliefs[:, op_pull]
-        beliefs[:, op_pull] /= beliefs[:, op_pull].sum(1, keepdims=True)
+        beliefs[:, op_pull] /= beliefs[:, op_pull].sum(axis=1, keepdims=True)
 
     # if the opponent hasn't pulled a lever in a long time then
     # it is probably because the first time was a failure
-    wait_time = 100
-    for pull in np.where((action_counts[:,1] == 1) & (time_since_op_pull > wait_time))[0]:
-        likelihood = 101 - np.ceil(supports[:, pull]/np.array([[1], [0.97]]))
-        beliefs[:, pull] = likelihood * beliefs[:, pull]
-        beliefs[:, pull] /= beliefs[:, pull].sum(1, keepdims=True)
-        time_since_op_pull[pull] = -np.inf
+    if step >= 102:
+        pull = op_pulls[-102]
+        if np.count_nonzero(op_pulls[:-1] == pull) == 1:
+            decay = np.array([[1], [0.97]])
+            likelihood = 101 - np.ceil(supports[:, pull] / decay)
+            beliefs[:, pull] = likelihood * beliefs[:, pull]
+            beliefs[:, pull] /= beliefs[:, pull].sum(axis=1, keepdims=True)
 
-    # decay in threshold due to pull
+    # decay in thresholds due to the pulls. the decay due to the opponent
+    # pull is only recorded in the belief distributions of the second kind
     supports[:, my_pull] *= 0.97
-
-    # decay due to opponent's pull
     supports[1, op_pull] *= 0.97
-
-    # increment counts
-    action_counts[my_pull,0] += 1
-    action_counts[op_pull,1] += 1
-
-    # update time since pull
-    time_since_op_pull[op_pull] = 0
-    time_since_op_pull += 1
     return
 
 
 # the main function called by kaggle environment for each turn
 def agent(observation, configuration):
-    global total_reward, action_counts, time_since_op_pull
     global my_pulls, op_pulls, results
 
-    if observation['step'] == 0:
+    # choose a random arm on the first turn
+    if observation.step == 0:
         return int(rng.integers(0, 100))
 
+    # parse observation
     my_pull = observation.lastActions[observation.agentIndex]
     op_pull = observation.lastActions[1 - observation.agentIndex]
     result = observation.reward - results.sum()
@@ -106,11 +108,17 @@ def agent(observation, configuration):
     my_pulls = np.append(my_pulls, my_pull)
     op_pulls = np.append(op_pulls, op_pull)
     results = np.append(results, result)
+
+    # update belief distributions
     update(observation.step)
 
-    # get action
-    resistance = 150
-    w = np.minimum(action_counts.sum(1), resistance) / resistance
-    estimates = (1 - w)*get_estimates(0) + w*get_estimates(1)
-    maximums = np.flatnonzero(estimates == estimates.max())
-    return int(rng.choice(maximums))
+    # compute a weighted average of the estimates of the first and second
+    # kinds. the weight is chosen based on how often the arm in question
+    # has been pulled by both players.
+    counts = np.bincount(np.append(my_pulls, op_pulls), minlength=100)
+    weights = np.fmin(counts, 150) / 150
+    estimates = (1 - weights) * get_estimates(0) + weights * get_estimates(1)
+
+    # return a randomly chosen arm with a maximal estimate
+    maximal = np.flatnonzero(estimates == estimates.max())
+    return int(rng.choice(maximal))
