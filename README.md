@@ -21,13 +21,13 @@ The script [load.py](load.py) produces the same graphics given an episode replay
 The rules of the game can be found [here](https://www.kaggle.com/c/santa-2020/overview/environment-rules). In short, there are 100 arms that, when pulled by a player, return a candy cane with an initial probability that is specific to that arm and unknown to the players. For 2000 turns, each player can select an arm to pull on, after which the player with the most candy canes wins. After each turn, each player is informed of both the result of their last pull and of the arm pulled on by the opponent (but not the result of the opponent's pull). Finally, the reward probability for each arm decays by 3% each time that arm is pulled.
 
 ### Learning from Opponent Actions
-We tried to hardcode the logic needed to learn from opponent actions. This can work well against agents who are greedy with respect to their threshold estimates, but these hardcoded rules are effectively countered by a deceptive opponent.
+We hardcoded the logic needed to learn from opponent actions. This can work well against agents who are greedy with respect to their threshold estimates, but these hardcoded rules are easy to counter by being deceptive. Here are the rules that we used
 
 1. If the opponent repeats a first-time action, assume the first time is a success.
-2. If the opponent hasn't pulled a lever in a long time then, it is probably because the first time was a failure.
+2. If the opponent hasn't pulled a lever in a long time, it is probably because the first time was a failure.
 
-### Heuristics
-Somewhat surpringly, we noticed that our agents that did not use the opponent's actions to decay their estimates performed better than our agents that did use the opponent's actions to decay their estimates. One explanation for this is that not decaying encourages the agent to exploit good machines that the opponent has found, this is especially important early in the game. On the other hand, we figured that having correct estimates of the thresholds are more important near the end of the game. We attempted to get the best of both worlds by averaging these two estimates (with/without opponent decay) with a weight that favors non-decayed estimates early in the game and decayed estimates later in the game.
+### Decay Opponent Actions Later in the Game
+We noticed that our agents that did not use the opponent's actions to decay their estimates performed surprisingly well. One explanation for this is that not decaying encourages the agent to exploit good machines that the opponent has found, this is especially important early in the game. On the other hand, having correct estimates of the thresholds is important near the end of the game. We attempted to get the best of both worlds by averaging these two estimates (with/without opponent decay) with a weight that favors non-decayed estimates early in the game and decayed estimates later in the game.
 
 
 ...
