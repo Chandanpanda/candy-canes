@@ -15,11 +15,17 @@ my_pulls = np.array([], dtype=np.int)
 op_pulls = np.array([], dtype=np.int)
 results = np.array([], dtype=np.int)
 
+
 def get_estimates(support_type):
+    tmean = np.sum(supports[support_type] * beliefs[support_type], axis=1, keepdims=True)
+    tvar = np.sum(((supports[support_type] - tmean) ** 2) * beliefs[support_type], axis=1, keepdims=True)
+    testimates = tmean + np.sqrt(tvar)
 
     window = 10
     hist = np.bincount(op_pulls[-window:], minlength=100).reshape(100, 1)
     hist = np.where(hist >= 2.0, hist, 0.0)
+
+    hist[testimates <= 25] = 0
 
     tilted = (np.ceil(supports[support_type]) ** hist) * beliefs[support_type]
     tilted = tilted / tilted.sum(axis=1, keepdims=True)
@@ -30,7 +36,7 @@ def get_estimates(support_type):
 
     tilted = ((101.0 - np.ceil(supports[support_type])) ** hist) * tilted
     tilted = tilted / tilted.sum(axis=1, keepdims=True)
-    
+
     # get optimistic estimate of threshold
     optimism = 1.0
     mean = np.sum(supports[support_type] * tilted, axis=1, keepdims=True)
@@ -41,7 +47,7 @@ def get_estimates(support_type):
     return estimates
 
 
-def update():
+def update(step):
     global beliefs, supports, action_counts, time_since_op_pull
     my_pull = my_pulls[-1]
     op_pull = op_pulls[-1]
@@ -54,14 +60,15 @@ def update():
     beliefs[:, my_pull] /= beliefs[:, my_pull].sum(1, keepdims=True)
 
     # if the opponent repeats a first-time action, assume the first time is a success
-    if (action_counts[op_pull,1] == 2) and (op_pulls[-2] == op_pull):
+    if (action_counts[op_pull,1] == 1) and (op_pulls[-2] == op_pull):
         likelihood = np.ceil(supports[:, op_pull]/np.array([[1], [0.97]]))
         beliefs[:, op_pull] = likelihood * beliefs[:, op_pull]
         beliefs[:, op_pull] /= beliefs[:, op_pull].sum(1, keepdims=True)
 
     # if the opponent hasn't pulled a lever in a long time then
     # it is probably because the first time was a failure
-    for pull in np.where((action_counts[:,1] == 1) & (time_since_op_pull > 100))[0]:
+    wait_time = 100
+    for pull in np.where((action_counts[:,1] == 1) & (time_since_op_pull > wait_time))[0]:
         likelihood = 101 - np.ceil(supports[:, pull]/np.array([[1], [0.97]]))
         beliefs[:, pull] = likelihood * beliefs[:, pull]
         beliefs[:, pull] /= beliefs[:, pull].sum(1, keepdims=True)
@@ -99,11 +106,11 @@ def agent(observation, configuration):
     my_pulls = np.append(my_pulls, my_pull)
     op_pulls = np.append(op_pulls, op_pull)
     results = np.append(results, result)
-    update()
+    update(observation.step)
 
     # get action
-    resistance = 250 # larger values make switching slower
+    resistance = 150
     w = np.minimum(action_counts.sum(1), resistance) / resistance
-    estimates = (1 - w)*get_estimates(0) + w*get_estimates(1) 
+    estimates = (1 - w)*get_estimates(0) + w*get_estimates(1)
     maximums = np.flatnonzero(estimates == estimates.max())
     return int(rng.choice(maximums))
