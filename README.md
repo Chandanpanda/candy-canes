@@ -1,7 +1,7 @@
 # Candy Canes
 
 ## About
-This repository contains our submission to the competition [Santa 2020: The Candy Cane Contest](https://www.kaggle.com/c/santa-2020) hosted on [Kaggle](https://www.kaggle.com). The bot finished 14th out of 792 teams on the [final leaderboard](https://www.kaggle.com/c/santa-2020/leaderboard). Our strategy relies on a Bayesian bandit algorithm with some additional heuristics.
+This repository contains our submission to the competition [Santa 2020: The Candy Cane Contest](https://www.kaggle.com/c/santa-2020) hosted on [Kaggle](https://www.kaggle.com). The bot finished 14th out of 788 teams on the [final leaderboard](https://www.kaggle.com/c/santa-2020/leaderboard). Our strategy relies on a Bayesian bandit algorithm with some additional heuristics.
 
 
 ## Local simulations
