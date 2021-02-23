@@ -4,9 +4,9 @@ import numpy as np
 rng = np.random.default_rng(13)
 
 # two belief distributions for the thresholds of each arm
-# the first only incorporates decay in the threshold resulting from our
-# pulls, whereas the second incorporates decay resulting from both our pulls
-# and those of the opponent
+# the first only reflects decay in the threshold resulting from our
+# pulls, whereas the second reflects decay resulting from both our
+# pulls and those of the opponent
 supports = np.tile(np.arange(101.0), (2, 100, 1))
 beliefs = np.full_like(supports, 1 / 101.0)
 
@@ -16,6 +16,8 @@ op_pulls = np.array([], dtype=np.int)
 results = np.array([], dtype=np.int)
 
 
+# apply some temporary Bayesian updates based on opponent's actions
+# to the distributions and return optimistic estimates of the thresholds
 def get_estimates(kind):
     # get optimistic estimates of the thresholds without any tilting
     mean = np.sum(supports[kind] * beliefs[kind], axis=1, keepdims=True)
@@ -53,6 +55,8 @@ def get_estimates(kind):
     return estimates
 
 
+# apply permanent Bayesian updates and decay to the distributions
+# based on previous observations
 def update(step):
     global beliefs, supports
     my_pull = my_pulls[-1]
